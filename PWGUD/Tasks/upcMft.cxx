@@ -56,8 +56,18 @@ struct UpcMftRec {
     registry.add("hTimeFT0C4", "FT0C time (ns) (4 tracks); Entries", kTH1F, {{200, -1.0, 1.0}});
     registry.add("hTracksPerBC", "Tracks per BC; Tracks per BC; Entries", kTH1F, {{10000, 0, 10000}});
     registry.add("hChargeDistribution4Tracks", "Charge distribution of 4-track events; q_{1}+q_{2}+q_{3}+q_{4}; Entries", kTH1F, {{9, -4.5, 4.5}});
-  }
-  
+    // control plots for 2-track events
+    registry.add("ControlHistos/hTrackChi2", "Track #chi^{2}; #chi^{2}; Entries", kTH1F, {{210, -0.5, 20.5}});
+    registry.add("ControlHistos/hTrackNClusters", "Number of clusters per track; Number of clusters; Entries", kTH1F, {{10, 0.5, 10.5}});
+    registry.add("ControlHistos/hTrackPt", "Track p_{T}; p_{T} (GeV/c); Entries", kTH1F, {{200, 0, 1.0}});
+    registry.add("ControlHistos/hTrackEta", "Track #eta; #eta; Entries", kTH1F, {{50, -4, -2}});
+    registry.add("ControlHistos/hTrackEtaPos", "Positive track #eta; #eta; Entries", kTH1F, {{50, -4, -2}});
+    registry.add("ControlHistos/hTrackEtaNeg", "Negative track #eta; #eta; Entries", kTH1F, {{50, -4, -2}});
+    registry.add("ControlHistos/hTrackPhi", "Track #phi; #phi; Entries", kTH1F, {{100, -3.2, 3.2}});
+    registry.add("ControlHistos/hTrackPhiPos", "Positive track #phi; #phi; Entries", kTH1F, {{100, -3.2, 3.2}});
+    registry.add("ControlHistos/hTrackPhiNeg", "Negative track #phi; #phi; Entries", kTH1F, {{100, -3.2, 3.2}});
+    }
+
   void process(aod::BCs const& bcs,
 	       aod::Collisions const& collisions,
 	       aod::MFTTracks const& tracksMFT,
@@ -101,15 +111,32 @@ struct UpcMftRec {
         element->second.timeFT0A = ft0.timeA();
       }     
     }
-    
+
     BcTracks defaultBcTrack; // Struct with default values used later to filter out default FT0 time
     for (auto& bcGroup : bcGroups) {
       registry.fill(HIST("hTracksPerBC"), bcGroup.second.tracks.size());
       // std::cout << " ----------DMK: Global index " << bcGroup.first << ", track count:  " << bcGroup.second.tracks.size() << ", FT0 time is: " << bcGroup.second.timeFT0C << std::endl;
       if (bcGroup.second.timeFT0C != defaultBcTrack.timeFT0C && std::abs(bcGroup.second.timeFT0C)<1 && std::abs(bcGroup.second.timeFT0A)>5 &&bcGroup.second.tracks.size() == 2) {
-        // Get tracks
+        // Fill control histos
+        for (int i=0; i<2; i++) {
+          auto mftTrack = bcGroup.second.tracks[i].mfttrack();
+          registry.fill(HIST("ControlHistos/hTrackChi2"), mftTrack.chi2());
+          registry.fill(HIST("ControlHistos/hTrackNClusters"), mftTrack.nClusters());
+          registry.fill(HIST("ControlHistos/hTrackPt"), mftTrack.pt());
+          registry.fill(HIST("ControlHistos/hTrackEta"), mftTrack.eta());
+          registry.fill(HIST("ControlHistos/hTrackPhi"), mftTrack.phi());
+          if (mftTrack.sign() > 0) {
+            registry.fill(HIST("ControlHistos/hTrackEtaPos"), mftTrack.eta());
+            registry.fill(HIST("ControlHistos/hTrackPhiPos"), mftTrack.phi());
+          }
+          if (mftTrack.sign() < 0) {
+            registry.fill(HIST("ControlHistos/hTrackEtaNeg"), mftTrack.eta());
+            registry.fill(HIST("ControlHistos/hTrackPhiNeg"), mftTrack.phi());
+          }
+        }
+        // Get tracks for the two-track case
 	      auto mftTrack1 = bcGroup.second.tracks[0].mfttrack();
-	      auto mftTrack2 = bcGroup.second.tracks[1].mfttrack();
+        auto mftTrack2 = bcGroup.second.tracks[0].mfttrack();
 	      // Make a rho candidate
 	      const float mPion = 0.13957; // GeV/c2
         if (mftTrack1.sign()+mftTrack2.sign() != 0) continue; // Skip if total charge is not 0 
